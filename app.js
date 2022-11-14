@@ -4,7 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const ejs = require("ejs");
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -35,19 +36,21 @@ app.get("/register",function(req,res){
 });
 
 app.post("/register",function(req,res){
-  pass = md5(req.body.password)
-  const regUser = new User({
-    email: req.body.username,
-    //md5() function will hash the inputs inside the ()
-    password: md5(req.body.password)
-  });
-//save your data to database
-  regUser.save(function(err){
-    if(err){
-      console.log(err);
-    }else{
-      res.render("secrets");
-    }
+
+  bcrypt.hash(req.body.password, saltRounds, function(err,hash){
+    const regUser = new User({
+      email: req.body.username,
+      //md5() function will hash the inputs inside the ()
+      password: hash
+    });
+  //save your data to database
+    regUser.save(function(err){
+      if(err){
+        console.log(err);
+      }else{
+        res.render("secrets");
+      }
+    });
   });
 });
 
@@ -55,24 +58,22 @@ app.post("/login",function(req,res){
   const username = req.body.username;
   //compare the hashed password with the entered hashed Password
   //hashing always results in the same output for the given input
-  const password = md5(req.body.password);
-
+  const password = req.body.password;
   //mongoose encrypt will decrypt and get the password when we use find()
-  User.findOne({email: username},function(err,result){
-    if(!err){
-      if(result){
-        if(result.password === password){
-          res.render("secrets");
-        }else{
-          console.log("Password incorrect")
-        }
-      }
+  User.findOne({email:username}, function(err,foundUser){
+    if(err){
+      console.log(err);
     }else{
-      console.log("There seems to be some error");
+      if(foundUser){
+        bcrypt.compare(password,foundUser.password,function(err,result){
+          if(result===True){
+            res.render("secrets");
+          }
+        });
+      }
     }
   });
 });
-
 
 app.listen(3000,function(req,res){
   console.log("app.js started");
