@@ -4,7 +4,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const ejs = require("ejs");
-const encrypt = require("mongoose-encryption");
+const md5 = require("md5");
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -17,17 +17,11 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 //create a full mongoose schema
 const userSchema = new mongoose.Schema({
   email: String,
-  pasword: String
+  password: String
 });
-
-//key for encryption
-
-//specifying what to encrypt
-userSchema.plugin(encrypt,{secret:process.env.SECRET, encryptedFields: ["password"]});
-
-//create a model for the schema
+//create a mongoose model to use
 const User = new mongoose.model("User",userSchema);
-
+// basic get/post routes
 app.get("/",function(req,res){
   res.render("home");
 });
@@ -41,11 +35,13 @@ app.get("/register",function(req,res){
 });
 
 app.post("/register",function(req,res){
+  pass = md5(req.body.password)
   const regUser = new User({
     email: req.body.username,
-    password: req.body.password
+    //md5() function will hash the inputs inside the ()
+    password: md5(req.body.password)
   });
-  //mongoose encrypt will encrypt when we use save
+//save your data to database
   regUser.save(function(err){
     if(err){
       console.log(err);
@@ -57,7 +53,9 @@ app.post("/register",function(req,res){
 
 app.post("/login",function(req,res){
   const username = req.body.username;
-  const password = req.body.password;
+  //compare the hashed password with the entered hashed Password
+  //hashing always results in the same output for the given input
+  const password = md5(req.body.password);
 
   //mongoose encrypt will decrypt and get the password when we use find()
   User.findOne({email: username},function(err,result){
@@ -66,7 +64,7 @@ app.post("/login",function(req,res){
         if(result.password === password){
           res.render("secrets");
         }else{
-          console.log("Password incorrect bro, try again bro, bye bro")
+          console.log("Password incorrect")
         }
       }
     }else{
